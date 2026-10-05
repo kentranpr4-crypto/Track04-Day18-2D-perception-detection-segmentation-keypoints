@@ -1,0 +1,85 @@
+{
+  "progress": {
+    "box_iou": "ok",
+    "nms": "ok",
+    "batched_nms": "ok",
+    "average_precision": "ok",
+    "mask_iou": "ok",
+    "polygon_to_mask": "ok",
+    "mask_to_yolo_seg": "ok",
+    "autolabel": "ok",
+    "oks": "ok",
+    "joint_angle": "ok",
+    "FLIP_IDX": "ok"
+  },
+  "latency": [
+    {
+      "Cấu hình": "one-to-many + NMS, conf 0.25",
+      "preprocess (ms)": 2.02,
+      "inference (ms)": 10.45,
+      "postprocess (ms)": 1.3,
+      "số box": 5
+    },
+    {
+      "Cấu hình": "one-to-many + NMS, conf 0.001",
+      "preprocess (ms)": 1.67,
+      "inference (ms)": 9.21,
+      "postprocess (ms)": 1.32,
+      "số box": 203
+    },
+    {
+      "Cấu hình": "one-to-one NMS-free, conf 0.25",
+      "preprocess (ms)": 1.59,
+      "inference (ms)": 8.65,
+      "postprocess (ms)": 0.39,
+      "số box": 5
+    },
+    {
+      "Cấu hình": "one-to-one NMS-free, conf 0.001",
+      "preprocess (ms)": 1.8,
+      "inference (ms)": 10.42,
+      "postprocess (ms)": 0.49,
+      "số box": 204
+    }
+  ],
+  "result_4b": {
+    "flip_idx": "giải phẫu",
+    "epochs": 40,
+    "imgsz": 640,
+    "Box mAP50-95": 0.9303488492063492,
+    "Pose mAP50": 0.995,
+    "Pose mAP50-95": 0.4573462529843696,
+    "train (phút)": 4.3
+  },
+  "result_4c": [
+    {
+      "Model": "flip_idx giải phẫu",
+      "Pose mAP50-95 — val gốc": 0.4573462529843696,
+      "Pose mAP50-95 — val lật gương": 0.43884777970456634
+    },
+    {
+      "Model": "flip_idx đồng nhất",
+      "Pose mAP50-95 — val gốc": 0.4169217121481716,
+      "Pose mAP50-95 — val lật gương": 0.29772304416546624
+    }
+  ],
+  "answers": {
+    "Q1": "(a) Ảnh sau letterbox có kích thước 640x480, nên ba mức stride 8/16/32 có 80x60 + 40x30 + 20x15 = 6300 vị trí dự đoán, thay vì 8400 ở 640x640.\n(b) Nhãn gốc là xywh với (x, y) là góc trên trái; code đã đọc (x, y) như tâm của box kiểu cxcywh. Vì thế khi dựng lại, box bị dịch nửa chiều rộng sang phải và nửa chiều cao xuống dưới.",
+    "Q2": "- Cột thay đổi nhiều nhất là cột \"postprocess (ms)\", khác biệt rõ rệt nhất ở mức conf = 0.001 (giảm từ 1.540ms xuống 0.490ms, trong khi inference gần như không đổi).\n- Giải thích: Thuật toán NMS phải so sánh độ lệch (IoU) giữa các box để xóa trùng lặp (độ phức tạp O(N^2)). Khi ngưỡng conf thấp hoặc cảnh đông người, số lượng box thô sinh ra rất lớn khiến thời gian chạy NMS tăng vọt. Head NMS-free xuất thẳng kết quả mà không cần bước lọc tuần tự này, nên thời gian postprocess luôn thấp và ổn định. Ngoài ra, NMS là thuật toán chạy tuần tự, rất khó tối ưu xử lý song song (khác với mạng CNN), nên nó trở thành \"nút thắt cổ chai\" lớn khi chạy trên các thiết bị yếu như CPU hoặc NPU.",
+    "Q3": "(a) Nếu cùng class, NMS 0.7 loại box điểm thấp hơn vì IoU 0.75 > 0.7, dù đó có thể là người thứ hai. Tăng ngưỡng giữ được người đứng sát nhưng dễ giữ box trùng; giảm ngưỡng dọn trùng mạnh hơn nhưng dễ bỏ sót.\n(b) Head one-to-many cung cấp nhiều vị trí dương và tín hiệu học phong phú hơn trong huấn luyện; head one-to-one học dự đoán duy nhất cho suy luận không cần NMS.",
+    "Q4": "(a) Hai người chạm hoặc che nhau có thể thành một vùng liên thông, gây đếm thiếu; một người bị che hoặc mask đứt đoạn có thể tách thành nhiều vùng, gây đếm thừa. Ở ví dụ này có 7 vùng cho 4 người. Panoptic segmentation gán ID instance riêng cho các đối tượng dạng thing, đồng thời giữ nhãn semantic cho nền dạng stuff.\n(b) Phần lớn pixel của xe buýt bị gán thành train. Đây là nhầm lẫn phân loại theo hình dạng/ngữ cảnh của model semantic, không phải một lỗi của thuật toán đếm vùng.",
+    "Q5": "(a) Mask 28x28 của Mask R-CNN phải phóng lên RoI nên với object lớn, mỗi ô phủ nhiều pixel và biên dễ thô. Prototype trên lưới ảnh dùng chung của YOLO-seg có thể thiếu chi tiết của object nhỏ chỉ chiếm vài ô; phép tổ hợp 32 prototype cũng giới hạn độ chi tiết biên.\n(b) Lấy argmax độc lập có thể ghép nhiều mask YOLO vào cùng một mask Mask R-CNN. Hungarian matching ràng buộc một-một và tối ưu tổng chất lượng ghép cặp.",
+    "Q6": "(a) Theo kết quả mẫu của lab, A ở giữa box lấy toàn bộ người (IoU khoảng 0.99), còn B ở 80% chiều cao lấy một mảnh nhỏ (IoU gần 0). Một điểm dương không cho biết ranh giới đối tượng và có thể rơi lên phần bị che; box giới hạn rõ vùng cần tách.\n(b) Dùng SAM trực tiếp khi cần prompt linh hoạt và chấp nhận chi phí tính toán/độ trễ. Với camera chạy liên tục và class cố định, dùng SAM để tạo rồi sửa nhãn, sau đó train YOLO-seg nhỏ để suy luận nhanh hơn.",
+    "Q7": "Khi bỏ ngưỡng, Keypoint R-CNN vẫn chọn cực đại của heatmap cho đầu gối và mắt cá dù chúng ở ngoài ảnh, nên các điểm được vẽ tại vị trí khả dụng trong khung hình nhưng không đáng tin. Argmax luôn trả ra một vị trí kể cả khi không có tín hiệu thật; cần confidence riêng cho từng keypoint để lọc các dự đoán như vậy.",
+    "Q8": "Với phép mô phỏng 200 lần và seed 0 trong ô đồ thị, người 40x80 xuống dưới OKS 0.5 ở sigma nhiễu khoảng 8 px; người 250x500 vẫn khoảng 0.65 ở 30 px, nên chưa xuống dưới 0.5 trong miền đồ thị.\nSigma của mắt nhỏ vì sai số được dung thứ ít hơn hông; khi người chỉ cao khoảng 80 px, vài pixel lệch ở mắt đã làm OKS giảm mạnh. Cần quan sát độ phân giải và độ tin cậy từng điểm, không diễn giải một OKS tổng mà bỏ qua kích thước người.",
+    "Q9": "(a) Người cúi nhặt đồ hoặc nằm nghỉ có thể bị báo nhầm; người vừa ngã nhưng còn ở tư thế gần đứng, hoặc bị che vai/hông, có thể bị bỏ sót.\n(b) Ảnh xoay đổi phân bố tư thế và khung hình so với dữ liệu huấn luyện; box và keypoint khó nhận hơn nên ít người vượt ngưỡng confidence.\n(c) Cần theo dõi cùng một người qua nhiều frame, nhận biết chuyển động ngã và thời gian nằm, xử lý che khuất/độ tin cậy, và cơ chế xác nhận trước khi báo động.",
+    "Q10": "Val chỉ có hổ quay phải giống train, nên mAP trên val gốc có thể vẫn cao và không đủ để kết luận flip_idx đồng nhất là đúng; mức giảm thực tế phải đo. Khi triển khai gặp hổ quay trái/ảnh lật gương, tên keypoint trái-phải không được hoán đổi theo giải phẫu, dẫn tới lỗi mà tập val một hướng có thể che giấu. Cần đánh giá thêm trên hổ quay trái với nhãn giải phẫu.",
+    "Q11": "Kiểu lỗi 1: Nhầm lẫn/Đảo vị trí chân trái và chân phảiPhân tích: Trong 6 ảnh dự đoán tệ nhất, các vạch vàng chỉ sai số thường bắt chéo qua thân hổ (kết hợp với cảnh báo \"nghi đảo trái <-> phải\" trên terminal). Hổ đang đi ngang, các chân có vân vằn giống hệt nhau và thường xuyên che khuất nhau (self-occlusion), khiến mô hình nhận diện nhầm chân xa thành chân gần hoặc ngược lại.   Cách khắc phục:Augmentation: Kiểm tra lại tính chính xác của mảng flip_idx (quy tắc lật nhãn trái/phải khi lật ảnh). Tăng cường các phép xoay (rotate) hoặc phối cảnh (perspective) nhẹ để mô hình học được chiều sâu.Kiến trúc/Loss: Tăng trọng số loss (về mặt OKS) đối với các cặp chân đối xứng để ép mô hình chú ý hơn vào việc phân biệt trái/phải dựa trên dáng đi tổng thể thay vì chỉ nhìn đặc trưng cục bộ.2. Kiểu lỗi 2: Khó định vị chính xác phần bàn chân (Paws)Phân tích: Nhìn vào biểu đồ \"Keypoint nào khó nhất?\", các phần đầu/lưng (màu cam) có sai số rất thấp, nhưng các thanh màu đỏ và xanh (đại diện cho phần chân) lại dài nhất, đặc biệt là right_front_paw và left_hind_paw có sai số trung bình vọt lên mức 0.2 - 0.25. Nguyên nhân do bàn chân hổ thường bị cỏ che lấp, hoặc bị mờ (motion blur) khi đang bước đi.   Cách khắc phục:Dữ liệu: Bổ sung thêm dữ liệu huấn luyện có chứa các địa hình cỏ cao, bùn đất che chân.Augmentation: Sử dụng kỹ thuật Cutout, Random Erasing hoặc Grid Dropout che đi các vùng nhỏ (như phần cẳng chân/bàn chân) ngẫu nhiên trên ảnh huấn luyện. Điều này ép mạng nơ-ron phải học cách \"đoán\" vị trí bàn chân dựa trên cấu trúc của đùi và cơ thể thay vì chỉ tìm kiếm đặc trưng hình ảnh trực tiếp của cái chân đó.",
+    "Q12": "- Việc dùng cùng sigma=1/12 cho mọi keypoint là không hợp lý. Mũi hổ là một vị trí cứng, cố định và rất dễ xác định chính xác (sai số dán nhãn của con người rất nhỏ). Ngược lại, gốc đuôi là vùng mềm, ranh giới mập mờ hơn, mỗi người dán nhãn có thể chấm lệch nhau một chút (sai số dán nhãn lớn). Đánh đồng sigma sẽ khiến OKS phạt độ lệch của mô hình ở mũi và gốc đuôi nặng như nhau, không phản ánh đúng bản chất khó/dễ của từng khớp.\n- Cách ước lượng sigma (σ) cho dataset custom: Chọn ra một tập ảnh nhỏ (VD: vài trăm ảnh) và cho nhiều người (annotators) cùng dán nhãn độc lập trên tập ảnh đó. Sau đó, tính độ lệch chuẩn (phương sai) tọa độ của từng keypoint giữa các người dán nhãn. Keypoint nào con người hay chấm lệch nhau nhiều thì gán sigma lớn, keypoint nào mọi người chấm đồng nhất cao thì gán sigma nhỏ (đúng theo cách COCO đã làm cho pose người)."
+  },
+  "env": {
+    "device": "cuda",
+    "torch": "2.11.0+cu130",
+    "ultralytics": "8.4.171"
+  }
+}
